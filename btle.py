@@ -17,7 +17,10 @@ end_program = False
 q = queue.Queue()
 def processSQL(url):
     while not end_program:
-        dataline = q.get()
+        try:
+            dataline = q.get(timeout=1)
+        except:
+            pass
 
 sqlThread = threading.Thread(target=processSQL, args=(sys.argv[1],))
 sqlThread.start()
