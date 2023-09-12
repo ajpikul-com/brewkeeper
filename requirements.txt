@@ -9,6 +9,7 @@ jedi==0.19.0
 matplotlib-inline==0.1.6
 parso==0.8.3
 pexpect==4.8.0
+picamera==1.13
 pickleshare==0.7.5
 prompt-toolkit==3.0.36
 ptyprocess==0.7.0
