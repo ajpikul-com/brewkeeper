@@ -5,6 +5,8 @@ import threading
 import pprint
 import queue
 import sys
+import tempfile
+from picamera import PiCamera
 
 if len(sys.argv) != 2:
     print("SQL DB URL as argument, please!")
@@ -12,8 +14,30 @@ if len(sys.argv) != 2:
 
 global end_program 
 end_program = False
-# Need a queue for SQL
-# Need a thread for SQL
+
+videoString = "Start Taking Photos"
+photos = False
+camera = PiCamera()
+
+def takePhotos():
+    fotodir = tempfile.TemporaryDirectory()
+    print("Temp foto directory: " + fotodir.name)
+    secondCounter = 60
+    while not end_program:
+        if photos:
+            if secondCounter <= 0:
+                filename = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
+                camera.capture(fotodir.name +'/'+filename+'.jpg')
+                secondCounter = 60
+            secondCounter-=1
+        time.sleep(1)
+        if not photos:
+            secondCounter = 60
+    fotodir.cleanup()
+
+photoThread = threading.Thread(target=takePhotos)
+photoThread.start()
+
 q = queue.Queue()
 def processSQL(url):
     while not end_program:
@@ -82,10 +106,17 @@ btScannerThread.start()
 while True:
     result = questionary.select(
         "What command?",
-        choices=["Scan", "List Logging", "Start Log", "Stop Log", "Dump Raw"],
+        choices=["Scan", "List Logging", "Start Log", "Stop Log", "Dump Raw", videoString],
     ).ask()
     if result == "List Logging":
         pprint.pprint(devicesLogging)
+    elif result == videoString:
+        if photos:
+            photos = False
+            videoString = "Start Taking Photos"
+        else:
+            photos = True
+            videoString = "Stop Taking Photos"
     elif result == "Stop Log":
         deviceToStop = questionary.select(
             "Which device should we stop logging?",
