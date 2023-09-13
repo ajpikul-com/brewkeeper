@@ -7,9 +7,12 @@ import queue
 import sys
 import tempfile
 from picamera import PiCamera
+import psycopg2
+import os
 
-if len(sys.argv) != 2:
-    print("SQL DB URL as argument, please!")
+os.system('clear')
+if len(sys.argv) != 6:
+    print("HOST PORT DBNAME USER PASSWORD")
     sys.exit(1)
 
 global end_program 
@@ -17,8 +20,10 @@ end_program = False
 
 videoString = "Start Taking Photos"
 photos = False
+photoName = ""
 camera = PiCamera()
 
+qPhoto = queue.Queue()
 def takePhotos():
     fotodir = tempfile.TemporaryDirectory()
     print("Temp foto directory: " + fotodir.name)
@@ -27,7 +32,9 @@ def takePhotos():
         if photos:
             if secondCounter <= 0:
                 filename = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
-                camera.capture(fotodir.name +'/'+filename+'.jpg')
+                photoPath = fotodir.name +'/'+filename+'.jpg'
+                camera.capture(photoPath)
+                qPhoto.put(photoPath)
                 secondCounter = 60
             secondCounter-=1
         time.sleep(1)
@@ -38,15 +45,38 @@ def takePhotos():
 photoThread = threading.Thread(target=takePhotos)
 photoThread.start()
 
-q = queue.Queue()
-def processSQL(url):
+conn = psycopg2.connect(host=sys.argv[1], port=sys.argv[2], dbname=sys.argv[3], user=sys.argv[4], password=sys.argv[5])
+conn.set_session(autocommit=True)
+cur1 = conn.cursor()
+cur2 = conn.cursor()
+
+def processSQLPhoto(cur):
     while not end_program:
         try:
-            dataline = q.get(timeout=1)
+            photoPath = qPhoto.get(timeout=1)
+            with open(photoPath, mode='rb') as photoFile: 
+                wholeFile = photoFile.read()
+                cur.execute("INSERT INTO photos (time, name, filename, photo) VALUES (%s, %s, %s, %s)",
+                    (datetime.datetime.now(), photoName, photoPath, wholeFile))
         except:
             pass
+    cur.close()
 
-sqlThread = threading.Thread(target=processSQL, args=(sys.argv[1],))
+sqlPhotoThread = threading.Thread(target=processSQLPhoto, args=(cur1,))
+sqlPhotoThread.start()
+
+q = queue.Queue()
+def processSQL(cur):
+    while not end_program:
+        try:
+            dataline = q.get(timeout=1) # name address time gravity temp
+            cur.execute("INSERT INTO hydrometer (time, device, name, temperature, gravity) VALUES (%s, %s, %s, %s, %s)",
+                    (dataline[2], dataline[1], dataline[0], dataline[4], dataline[3]))
+        except:
+            pass
+    cur.close()
+
+sqlThread = threading.Thread(target=processSQL, args=(cur2,))
 sqlThread.start()
 
 
@@ -76,7 +106,7 @@ class ScanDelegate(DefaultDelegate):
                             i += 1
                     specific_gravity = (vals[22]<<8)+vals[23]
                     cpu_temp = vals[21]
-                    q.put((devicesLogging[dev.addr], time.time(), specific_gravity, cpu_temp))
+                    q.put((devicesLogging[dev.addr], dev.addr, datetime.datetime.now(), specific_gravity, cpu_temp))
                     if dump:
                         print(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'))
                         print(vals)
@@ -106,17 +136,23 @@ btScannerThread.start()
 while True:
     result = questionary.select(
         "What command?",
-        choices=["Scan", "List Logging", "Start Log", "Stop Log", "Dump Raw", videoString],
+        choices=["Scan", "List Logging", "Start Log", "Stop Log", "Dump Raw", videoString, "Record Event"],
     ).ask()
     if result == "List Logging":
         pprint.pprint(devicesLogging)
+    elif result == "Record Event":
+        #Literally just do it
+        pass
     elif result == videoString:
         if photos:
             photos = False
             videoString = "Start Taking Photos"
         else:
-            photos = True
-            videoString = "Stop Taking Photos"
+            name = questionary.text("What will the name be?").ask()
+            if name is not None:
+                photoName = name
+                photos = True
+                videoString = "Stop Taking Photos"
     elif result == "Stop Log":
         deviceToStop = questionary.select(
             "Which device should we stop logging?",
@@ -157,3 +193,4 @@ while True:
     elif result is None:
         break
 end_program = True
+conn.close()
