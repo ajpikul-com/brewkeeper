@@ -91,7 +91,7 @@ class ScanDelegate(DefaultDelegate):
         DefaultDelegate.__init__(self)
     def handleDiscovery(self, dev, isNewDev, isNewData):
         if scan.is_set() and isNewDev and not dev.connectable:
-            print(dev.addr)
+            print(dev.addr, end=", ")
             devicesAvailable[dev.addr] = True
         elif dev.addr in devicesLogging:
             for (adtype, desc, val) in dev.getScanData():
@@ -131,12 +131,12 @@ def startScanner():
                 scanner.process(1)
 btScannerThread = threading.Thread(target=startScanner)
 btScannerThread.start()
-
 while True:
     result = questionary.select(
         "What command?",
         choices=["Scan", "List Logging", "Start Log", "Stop Log", "Dump Raw", videoString, "Record Event"],
     ).ask()
+
     if result == "List Logging":
         pprint.pprint(devicesLogging)
     elif result == "Record Event":
