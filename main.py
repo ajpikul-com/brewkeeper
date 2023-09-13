@@ -27,7 +27,6 @@ qPhoto = queue.Queue()
 def takePhotos():
     fotodir = tempfile.TemporaryDirectory()
     print("Temp foto directory: " + fotodir.name)
-    secondCounter = 60
     while not end_program:
         if photos:
             if secondCounter <= 0:
@@ -39,7 +38,7 @@ def takePhotos():
             secondCounter-=1
         time.sleep(1)
         if not photos:
-            secondCounter = 60
+            secondCounter = 1
     fotodir.cleanup()
 
 photoThread = threading.Thread(target=takePhotos)
