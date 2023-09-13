@@ -48,6 +48,7 @@ conn = psycopg2.connect(host=sys.argv[1], port=sys.argv[2], dbname=sys.argv[3], 
 conn.set_session(autocommit=True)
 cur1 = conn.cursor()
 cur2 = conn.cursor()
+cur3 = conn.cursor()
 
 def processSQLPhoto(cur):
     while not end_program:
@@ -64,6 +65,7 @@ def processSQLPhoto(cur):
 sqlPhotoThread = threading.Thread(target=processSQLPhoto, args=(cur1,))
 sqlPhotoThread.start()
 
+
 q = queue.Queue()
 def processSQL(cur):
     while not end_program:
@@ -78,6 +80,19 @@ def processSQL(cur):
 sqlThread = threading.Thread(target=processSQL, args=(cur2,))
 sqlThread.start()
 
+qEvent = queue.Queue()
+def processSQLEvent(cur):
+    while not end_program:
+        try:
+            dataline = qEvent.get(timeout=1) # name address time gravity temp
+            cur.execute("INSERT INTO events (time, event) VALUES (%s, %s)",
+                    (datetime.datetime.now(), dataline))
+        except:
+            pass
+    cur.close()
+
+sqlEventThread = threading.Thread(target=processSQLEvent, args=(cur3,))
+sqlEventThread.start()
 
 dump = False
 startScan = threading.Event()
@@ -140,8 +155,8 @@ while True:
     if result == "List Logging":
         pprint.pprint(devicesLogging)
     elif result == "Record Event":
-        #Literally just do it
-        pass
+        eventName = questionary.text("What is the event?").ask()
+        qEvent.put(eventName)
     elif result == videoString:
         if photos:
             photos = False
