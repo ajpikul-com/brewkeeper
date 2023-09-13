@@ -22,6 +22,8 @@ videoString = "Start Taking Photos"
 photos = False
 photoName = ""
 camera = PiCamera()
+camera.resolution = (2592, 1944)
+camera.framerate = 15
 
 qPhoto = queue.Queue()
 def takePhotos():
