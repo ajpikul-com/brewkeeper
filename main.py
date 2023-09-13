@@ -60,6 +60,8 @@ def processSQLPhoto(cur):
                 wholeFile = photoFile.read()
                 cur.execute("INSERT INTO photos (time, name, filename, photo) VALUES (%s, %s, %s, %s)",
                     (datetime.datetime.now(), photoName, photoPath, wholeFile))
+            os.remove(photoPath)
+            del wholeFile
         except:
             pass
     cur.close()
