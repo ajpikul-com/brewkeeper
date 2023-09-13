@@ -106,7 +106,7 @@ class ScanDelegate(DefaultDelegate):
         DefaultDelegate.__init__(self)
     def handleDiscovery(self, dev, isNewDev, isNewData):
         if scan.is_set() and isNewDev and not dev.connectable:
-            print(dev.addr, end=", ")
+            print(dev.addr, end=", ", flush=True)
             devicesAvailable[dev.addr] = True
         elif dev.addr in devicesLogging:
             for (adtype, desc, val) in dev.getScanData():
@@ -141,7 +141,6 @@ def startScanner():
             while not end_program:
                 if not startScan.is_set():
                     scan.clear()
-                    print("")
                     break
                 scanner.process(1)
 btScannerThread = threading.Thread(target=startScanner)
@@ -195,6 +194,8 @@ while True:
                 time.sleep(.25)
             except KeyboardInterrupt:
                 startScan.clear()
+                time.sleep(.5)
+                print("")
                 break
     elif result == "Dump Raw":
         dump = True
